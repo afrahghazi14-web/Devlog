@@ -1,4 +1,5 @@
 import * as serviceRepository from "../repositories/service.repository.js";
+import { AppError } from "../errors/AppError.js";
 
 // Valid environment values defined in schema.prisma
 const VALID_ENVIRONMENTS = ["PRODUCTION", "STAGING", "QA"];
@@ -8,22 +9,16 @@ export async function listServices() {
 }
 
 export async function createService({ name, environment }) {
-  // Validate presence and type of name
   if (!name || typeof name !== "string" || !name.trim()) {
-    const error = new Error("Service name is required.");
-    error.statusCode = 400;
-    error.code = "BAD_REQUEST";
-    throw error;
+    throw new AppError("Service name is required.", 400, "BAD_REQUEST");
   }
 
-  // Validate environment against allowed enum values
   if (!environment || !VALID_ENVIRONMENTS.includes(environment)) {
-    const error = new Error(
-      `Invalid environment '${environment}'. Allowed values: ${VALID_ENVIRONMENTS.join(", ")}.`
+    throw new AppError(
+      `Invalid environment '${environment}'. Allowed values: ${VALID_ENVIRONMENTS.join(", ")}.`,
+      400,
+      "BAD_REQUEST"
     );
-    error.statusCode = 400;
-    error.code = "BAD_REQUEST";
-    throw error;
   }
 
   const trimmedName = name.trim();
@@ -35,12 +30,11 @@ export async function createService({ name, environment }) {
   );
 
   if (existingService) {
-    const error = new Error(
-      `Service '${trimmedName}' already exists in the '${environment}' environment.`
+    throw new AppError(
+      `Service '${trimmedName}' already exists in the '${environment}' environment.`,
+      409,
+      "CONFLICT"
     );
-    error.statusCode = 409;
-    error.code = "CONFLICT";
-    throw error;
   }
 
   return serviceRepository.create({

@@ -164,3 +164,97 @@ Phase 0 complete
 - Offset pagination computes `skip = (page - 1) * limit` and `totalPages = Math.ceil(total / limit)`.
 - Including the `service` relation in incident queries resolves relations at the ORM/SQL level, preventing N+1 SELECT queries.
 - The service existence check for incident creation is enforced in `incident.service.js` before calling the repository layer.
+
+## Phase 3: Resolve workflow, stats, validation, error handling, hardening
+
+### What was built
+- **Atomic Incident Resolve Workflow (`POST /api/v1/incidents/:id/resolve`)**:
+  - Implemented transactional resolve workflow inside a single `prisma.$transaction`.
+  - Atomically marks incident status as `RESOLVED` and inserts the corresponding `PostMortem` record (`rootCause`, `resolutionSteps`, `timeSpentMinutes`).
+  - Protected against race conditions (concurrent resolve attempts) by executing conditional `updateMany` with `where: { id, status: 'OPEN' }`. If count is 0, the service layer checks if the incident is missing (HTTP 404) or already resolved (HTTP 409 Conflict).
+  - Returns HTTP 201 on success with the updated incident, its service, and the post-mortem.
+- **Dashboard Stats Endpoint (`GET /api/v1/stats`)**:
+  - Implemented layered stats architecture (`stats.routes.js`, `stats.controller.js`, `stats.service.js`, `stats.repository.js`).
+  - Concurrently aggregates:
+    - `openIncidents`: total count of `OPEN` incidents.
+    - `openHighSeverity`: count of `OPEN` incidents with `HIGH` or `CRITICAL` severity.
+    - `totalMinutesSpent`: sum of `PostMortem.timeSpentMinutes` (defaulting to 0 if no post-mortems exist).
+- **Custom Validation Middleware**:
+  - Handcrafted validation helpers without third-party libraries (`isNonEmptyString`, `isPositiveInteger`, `isValidEnum`).
+  - Validates required fields, non-empty trimmed strings, sensible maximum lengths, enum values, and positive integers across service creation, incident creation, incident resolving, and query filtering.
+  - Returns HTTP 400 with all validation problems listed in both message and details array.
+- **Central Error Handling & Async Wrapper**:
+  - Created custom `AppError` class (`message`, `statusCode`, `code`, `details`).
+  - Created `asyncHandler` wrapper to eliminate repetitive `try / catch` boilerplate across controllers.
+  - Mapped Prisma error codes:
+    - `P2002` -> HTTP 409 `CONFLICT`
+    - `P2025` -> HTTP 404 `NOT_FOUND`
+    - `P2003` -> HTTP 400 `BAD_REQUEST`
+  - Added catch-all route middleware for unknown routes returning JSON 404 (`{ "error": { "message": "Cannot GET /...", "code": "NOT_FOUND" } }`).
+  - Masked unexpected 500 errors with generic client message while logging full error details on the server.
+- **Backend Hardening**:
+  - Restricted JSON body parsing to a 100kb limit (`express.json({ limit: '100kb' })`) returning HTTP 413 if exceeded.
+  - Integrated `helmet` for secure HTTP headers.
+  - Implemented rate limiting with `express-rate-limit` (300 requests per 15 minutes window under `/api`).
+  - Restricted CORS origin strictly to `FRONTEND_URL` environment variable (`http://localhost:5173`).
+
+### Files Added or Changed
+- `backend/package.json` & `backend/package-lock.json`: Added `helmet` and `express-rate-limit` dependencies.
+- `backend/.env` & `backend/.env.example`: Added `FRONTEND_URL` configuration.
+- `backend/src/config/env.js`: Loaded `FRONTEND_URL` into centralized env config.
+- `backend/src/errors/AppError.js`: Custom application error class.
+- `backend/src/middleware/asyncHandler.js`: Higher-order function wrapping async route handlers.
+- `backend/src/middleware/validate.js`: Validation helpers and middleware for services, incidents, resolve, and queries.
+- `backend/src/middleware/errorHandler.js`: Enhanced central error handler with Prisma mapping, 100kb payload handling, and 500 masking.
+- `backend/src/repositories/incident.repository.js`: Added atomic `executeResolveTransaction` with race-condition protection.
+- `backend/src/services/incident.service.js`: Added `resolveIncident` business logic and AppError handling.
+- `backend/src/controllers/incident.controller.js`: Added `resolveIncident` endpoint and converted handlers to `asyncHandler`.
+- `backend/src/routes/incident.routes.js`: Added `POST /:id/resolve` route and validation middlewares.
+- `backend/src/controllers/service.controller.js`: Converted handlers to `asyncHandler`.
+- `backend/src/routes/service.routes.js`: Added `validateCreateService` middleware.
+- `backend/src/repositories/stats.repository.js`: Database queries for dashboard metrics using Prisma.
+- `backend/src/services/stats.service.js`: Business service for stats.
+- `backend/src/controllers/stats.controller.js`: HTTP controller for stats.
+- `backend/src/routes/stats.routes.js`: Maps `GET /` to stats controller.
+- `backend/src/routes/index.js`: Mounted `/stats` under `/api/v1`.
+- `backend/src/controllers/health.controller.js`: Converted to `asyncHandler`.
+- `backend/src/app.js`: Integrated helmet, rate-limit, 100kb body limit, CORS origin, and 404 handler.
+- `docs/PROGRESS.md`: Documented Phase 3 implementation details and testing.
+
+### How to Run and Test
+1. **Start the backend server**:
+   ```bash
+   cd backend
+   npm run dev
+   ```
+2. **Resolve an Incident**:
+   ```bash
+   curl -i -X POST http://localhost:4000/api/v1/incidents/1/resolve \
+     -H "Content-Type: application/json" \
+     -d "{\"rootCause\":\"Memory leak in connection pool.\",\"resolutionSteps\":\"Added connection cleanup.\",\"timeSpentMinutes\":45}"
+   ```
+3. **Attempt Resolving an Already Resolved Incident (returns 409)**:
+   ```bash
+   curl -i -X POST http://localhost:4000/api/v1/incidents/1/resolve \
+     -H "Content-Type: application/json" \
+     -d "{\"rootCause\":\"Duplicate\",\"resolutionSteps\":\"None\",\"timeSpentMinutes\":10}"
+   ```
+4. **Fetch Stats**:
+   ```bash
+   curl -i http://localhost:4000/api/v1/stats
+   ```
+5. **Verify Validation Middleware (returns 400 with all errors)**:
+   ```bash
+   curl -i -X POST http://localhost:4000/api/v1/incidents \
+     -H "Content-Type: application/json" \
+     -d "{\"serviceId\":-1,\"title\":\"\",\"description\":\"\",\"severity\":\"BAD\"}"
+   ```
+6. **Verify Unknown Route (returns 404 JSON)**:
+   ```bash
+   curl -i http://localhost:4000/api/v1/unknown-route
+   ```
+
+### Anything You Need to Know
+- `updateMany` inside `prisma.$transaction` guarantees PostgreSQL row-level locking during status updates, preventing race conditions without needing pessimistic locks or read-then-write checks.
+- Rate limiting is set to 300 requests per 15-minute window for `/api` routes and includes standard `ratelimit-*` headers.
+- Request payloads over 100kb are rejected with HTTP 413 `PAYLOAD_TOO_LARGE`.

@@ -1,39 +1,39 @@
 import * as incidentService from "../services/incident.service.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
-// Incident controller handles parsing HTTP request data, dispatching to incident service,
-// and returning standardized HTTP response payloads.
+// Controllers receive HTTP requests, dispatch to services, and send HTTP responses.
+// Using asyncHandler avoids repetitive try/catch boilerplate.
 
-export async function getIncidents(req, res, next) {
-  try {
-    const { status, page, limit } = req.query;
-    const result = await incidentService.listIncidents({ status, page, limit });
-    return res.status(200).json(result);
-  } catch (error) {
-    next(error);
-  }
-}
+export const getIncidents = asyncHandler(async (req, res) => {
+  const { status, page, limit } = req.query;
+  const result = await incidentService.listIncidents({ status, page, limit });
+  res.status(200).json(result);
+});
 
-export async function getIncidentById(req, res, next) {
-  try {
-    const { id } = req.params;
-    const incident = await incidentService.getIncidentById(id);
-    return res.status(200).json(incident);
-  } catch (error) {
-    next(error);
-  }
-}
+export const getIncidentById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const incident = await incidentService.getIncidentById(id);
+  res.status(200).json(incident);
+});
 
-export async function createIncident(req, res, next) {
-  try {
-    const { serviceId, title, description, severity } = req.body || {};
-    const createdIncident = await incidentService.createIncident({
-      serviceId,
-      title,
-      description,
-      severity,
-    });
-    return res.status(201).json(createdIncident);
-  } catch (error) {
-    next(error);
-  }
-}
+export const createIncident = asyncHandler(async (req, res) => {
+  const { serviceId, title, description, severity } = req.body;
+  const createdIncident = await incidentService.createIncident({
+    serviceId,
+    title,
+    description,
+    severity,
+  });
+  res.status(201).json(createdIncident);
+});
+
+export const resolveIncident = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { rootCause, resolutionSteps, timeSpentMinutes } = req.body;
+  const resolved = await incidentService.resolveIncident(id, {
+    rootCause,
+    resolutionSteps,
+    timeSpentMinutes,
+  });
+  res.status(201).json(resolved);
+});

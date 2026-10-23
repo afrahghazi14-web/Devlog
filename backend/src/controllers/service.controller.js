@@ -1,23 +1,14 @@
 import * as serviceService from "../services/service.service.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
-// Controllers handle HTTP requests, extract parameters/body, invoke services, and respond.
-// They contain NO database logic.
+// Controllers receive HTTP requests, invoke services, and respond.
+export const getServices = asyncHandler(async (req, res) => {
+  const services = await serviceService.listServices();
+  res.status(200).json(services);
+});
 
-export async function getServices(req, res, next) {
-  try {
-    const services = await serviceService.listServices();
-    return res.status(200).json(services);
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function createService(req, res, next) {
-  try {
-    const { name, environment } = req.body || {};
-    const newService = await serviceService.createService({ name, environment });
-    return res.status(201).json(newService);
-  } catch (error) {
-    next(error);
-  }
-}
+export const createService = asyncHandler(async (req, res) => {
+  const { name, environment } = req.body || {};
+  const newService = await serviceService.createService({ name, environment });
+  res.status(201).json(newService);
+});
