@@ -84,3 +84,83 @@ Phase 0 complete
 ### Anything You Need to Know
 - The PostgreSQL database name is case-sensitive and must be written as `Devlog` (capital `D`) in `DATABASE_URL`.
 - Prisma version 7 requires `@prisma/adapter-pg` driver adapter for runtime queries and `prisma.config.js` for migration/CLI operations.
+
+## Phase 2: Service and incident APIs (read + create)
+
+### What was built
+- **Layered Architecture Implementation**:
+  - Implemented strict separation of concerns across routes -> controllers -> services -> repositories.
+  - Ensured only repository files import Prisma and access the database.
+- **Service Endpoints**:
+  - `GET /api/v1/services`: Lists all registered services, ordered alphabetically by name (`orderBy: { name: 'asc' }`).
+  - `POST /api/v1/services`: Registers a new service with `name` and `environment` (`PRODUCTION`, `STAGING`, `QA`). Validates input, prevents duplicate `(name, environment)` with HTTP 409 Conflict, and returns HTTP 201 with the created service.
+- **Incident Endpoints**:
+  - `GET /api/v1/incidents`: Fetches paginated incidents with query params `status` (`ALL`, `OPEN`, `RESOLVED`, default `ALL`), `page` (integer >= 1, default 1), and `limit` (integer 1..50, default 10).
+    - Sorts newest first (`createdAt: 'desc'`).
+    - Uses offset pagination (`skip`, `take`).
+    - Solves the N+1 problem by including the related service in the query (`include: { service: true }`).
+    - Fetches the paginated records and the total count atomically using `prisma.$transaction`.
+    - Returns standardized pagination envelope: `{ "data": [...], "page": 1, "limit": 10, "total": 3, "totalPages": 1 }`.
+  - `GET /api/v1/incidents/:id`: Retrieves a single incident by integer ID, including its associated `service` and `postMortem`. Returns HTTP 404 with a structured error if the incident does not exist.
+  - `POST /api/v1/incidents`: Logs a new incident with `serviceId`, `title`, `description`, and `severity` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
+    - Enforces the business rule that the referenced service must exist in the **service layer** (returning HTTP 404 if not found).
+    - Automatically sets initial status to `OPEN`.
+    - Returns HTTP 201 and the newly created incident with its associated service.
+- **API Hardening and Error Handling**:
+  - Enhanced central error handler to catch malformed JSON payloads (HTTP 400 `BAD_REQUEST`) and Prisma constraint fallbacks.
+  - Validated parameter and body types across services to guarantee the server never crashes on invalid or unexpected client input.
+
+### Files Added or Changed
+- `backend/src/repositories/service.repository.js`: Database queries for services (`findAll`, `findById`, `findByNameAndEnvironment`, `create`) using Prisma.
+- `backend/src/repositories/incident.repository.js`: Database queries and atomic transactions for incidents (`findManyWithCount`, `findById`, `create`) using Prisma.
+- `backend/src/services/service.service.js`: Business logic and uniqueness checks for services.
+- `backend/src/services/incident.service.js`: Business logic, offset pagination calculation, and service existence validation for incidents.
+- `backend/src/controllers/service.controller.js`: HTTP request/response handler for service endpoints.
+- `backend/src/controllers/incident.controller.js`: HTTP request/response handler for incident endpoints.
+- `backend/src/routes/service.routes.js`: Maps `/services` endpoints to service controller methods.
+- `backend/src/routes/incident.routes.js`: Maps `/incidents` endpoints to incident controller methods.
+- `backend/src/routes/index.js`: Mounted `/services` and `/incidents` under the `/api/v1` router.
+- `backend/src/middleware/errorHandler.js`: Added graceful handling for malformed JSON and Prisma error fallback codes.
+- `docs/PROGRESS.md`: Documented Phase 2 deliverables, tests, and architecture notes.
+
+### How to Run and Test
+1. **Start the backend server**:
+   ```bash
+   cd backend
+   npm run dev
+   ```
+2. **Test Service Endpoints**:
+   - List services:
+     ```bash
+     curl -i http://localhost:4000/api/v1/services
+     ```
+   - Create a service:
+     ```bash
+     curl -i -X POST http://localhost:4000/api/v1/services \
+       -H "Content-Type: application/json" \
+       -d "{\"name\":\"Auth Service\",\"environment\":\"PRODUCTION\"}"
+     ```
+3. **Test Incident Endpoints**:
+   - List incidents with pagination and filtering:
+     ```bash
+     curl -i "http://localhost:4000/api/v1/incidents?status=ALL&page=1&limit=10"
+     ```
+   - Create an incident:
+     ```bash
+     curl -i -X POST http://localhost:4000/api/v1/incidents \
+       -H "Content-Type: application/json" \
+       -d "{\"serviceId\":1,\"title\":\"JWT signature failure\",\"description\":\"Users unable to log in.\",\"severity\":\"CRITICAL\"}"
+     ```
+   - Fetch incident by ID:
+     ```bash
+     curl -i http://localhost:4000/api/v1/incidents/1
+     ```
+   - Fetch non-existent incident (returns 404):
+     ```bash
+     curl -i http://localhost:4000/api/v1/incidents/9999
+     ```
+
+### Anything You Need to Know
+- Offset pagination computes `skip = (page - 1) * limit` and `totalPages = Math.ceil(total / limit)`.
+- Including the `service` relation in incident queries resolves relations at the ORM/SQL level, preventing N+1 SELECT queries.
+- The service existence check for incident creation is enforced in `incident.service.js` before calling the repository layer.
