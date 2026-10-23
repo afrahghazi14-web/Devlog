@@ -258,3 +258,69 @@ Phase 0 complete
 - `updateMany` inside `prisma.$transaction` guarantees PostgreSQL row-level locking during status updates, preventing race conditions without needing pessimistic locks or read-then-write checks.
 - Rate limiting is set to 300 requests per 15-minute window for `/api` routes and includes standard `ratelimit-*` headers.
 - Request payloads over 100kb are rejected with HTTP 413 `PAYLOAD_TOO_LARGE`.
+
+## Phase 4: Seed script, API tests, API documentation
+
+### What was built
+- **Idempotent Database Seed Script (`backend/prisma/seed.js`)**:
+  - Implemented repeatable database seeding in plain JavaScript.
+  - Clears tables in dependency order (`PostMortem` -> `Incident` -> `Service`) within an atomic `prisma.$transaction`.
+  - Seeds 3 baseline services:
+    - `User Auth` (`PRODUCTION`)
+    - `Billing Engine` (`PRODUCTION`)
+    - `Notification API` (`STAGING`)
+  - Seeds 3 baseline incidents:
+    - 1 CRITICAL OPEN incident linked to `User Auth`.
+    - 1 MEDIUM OPEN incident linked to `Notification API`.
+    - 1 HIGH RESOLVED incident linked to `Billing Engine` with associated `PostMortem` (`timeSpentMinutes: 90`).
+  - Configured `prisma.config.js` with `migrations: { seed: 'node prisma/seed.js' }` so `npx prisma db seed` works with Prisma 7.
+  - Added npm script `"seed": "node prisma/seed.js"`.
+  - Verified safe re-execution (running twice produces no errors or duplicate records).
+- **Automated API Test Suite (`backend/tests/api.test.js`)**:
+  - Built end-to-end integration tests using Node's native test runner (`node:test`), assertions (`node:assert/strict`), and native `fetch`.
+  - Automatically spins up an in-process ephemeral test server on port 0, preventing port conflicts.
+  - Generates isolated test data using unique timestamps without modifying or deleting seed data.
+  - Added npm script `"test": "node --test tests/api.test.js"`.
+  - 100% pass rate across 12 comprehensive test cases covering:
+    - `GET /health` connectivity.
+    - `GET /services` alphabetical sorting.
+    - `POST /services` creation and HTTP 409 conflict handling.
+    - `POST /incidents` creation and HTTP 400 validation checking.
+    - `POST /incidents/:id/resolve` atomic resolution with post-mortem, duplicate 409 rejection, and missing 404 detection.
+    - `GET /incidents` status filtering (`OPEN`, `RESOLVED`, `ALL`) and pagination mechanics (`skip`, `take`, envelope).
+    - `GET /stats` summary calculations (`openIncidents`, `openHighSeverity`, `totalMinutesSpent`).
+- **Complete REST API Documentation (`docs/API.md`)**:
+  - Documented all endpoints under `/api/v1` (`/health`, `/services`, `/incidents`, `/incidents/:id`, `/incidents/:id/resolve`, `/stats`).
+  - Documented methods, paths, query/body specifications, full JSON examples for requests and responses, HTTP status codes, validation error formats, and hardening headers.
+
+### Files Added or Changed
+- `backend/prisma/seed.js`: Database seeder script inserting baseline services, incidents, and post-mortems.
+- `backend/prisma.config.js`: Registered `seed` command in Prisma 7 configuration.
+- `backend/package.json`: Added `seed` and `test` scripts, plus Prisma seed metadata.
+- `backend/tests/api.test.js`: Integration test suite using `node:test` and `fetch`.
+- `docs/API.md`: Comprehensive REST API documentation.
+- `docs/PROGRESS.md`: Documented Phase 4 deliverables, seed instructions, and test runs.
+
+### How to Run and Test
+1. **Seed the database**:
+   ```bash
+   cd backend
+   npm run seed
+   ```
+   Or via Prisma CLI:
+   ```bash
+   cd backend
+   npx prisma db seed
+   ```
+2. **Run the automated API test suite**:
+   ```bash
+   cd backend
+   npm test
+   ```
+3. **Inspect the API documentation**:
+   Open `docs/API.md`.
+
+### Anything You Need to Know
+- The seed script truncates/deletes records using a transaction so it can be re-run indefinitely without duplicate key violations.
+- The test runner binds to an ephemeral OS-assigned port (`app.listen(0)`), allowing tests to execute independently whether or not the development server is actively running.
+
