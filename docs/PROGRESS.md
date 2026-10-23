@@ -324,3 +324,75 @@ Phase 0 complete
 - The seed script truncates/deletes records using a transaction so it can be re-run indefinitely without duplicate key violations.
 - The test runner binds to an ephemeral OS-assigned port (`app.listen(0)`), allowing tests to execute independently whether or not the development server is actively running.
 
+## Phase 5: Frontend foundation (Vite, Tailwind, Router, Axios, Query Client)
+
+### What was built
+- **Vite + React Project Setup (Plain JavaScript, `.jsx`)**:
+  - Initialized React application with Vite in `frontend/` using JavaScript template (no TypeScript, zero `.ts`/`.tsx` files).
+  - Configured `@tailwindcss/vite` in `vite.config.js` and imported Tailwind in `src/index.css`.
+  - Configured default dark theme with dark background (`#090d16`), light text, and clean typography.
+- **Dependencies Installed**:
+  - `react-router-dom`: Client-side routing with layout and nested routes.
+  - `axios`: Centralized HTTP client.
+  - `@tanstack/react-query`: Server state synchronization, caching, and custom query hooks.
+  - `react-hook-form`: Form management and validation for subsequent phases.
+- **Architecture & Directory Structure**:
+  - `src/api/client.js`: Centralized Axios instance configured with `baseURL` from `import.meta.env.VITE_API_URL` (defaults to `http://localhost:4000/api/v1`).
+    - Configured response interceptor to unwrap JSON data and normalize backend error envelopes into standard JavaScript `Error` objects with backend error messages.
+  - `src/api/`: Modular API resource clients (`incidentApi.js`, `serviceApi.js`, `statsApi.js`).
+  - `src/hooks/`: Custom query hooks wrapping TanStack React Query (`useIncidents`, `useIncident`, `useServices`, `useStats`).
+  - `src/components/ErrorBoundary.jsx`: Class component error boundary with graceful fallback UI and a "Try again" retry button.
+  - `src/layouts/AppLayout.jsx`: Top navigation bar with "DevLog" branding, active link navigation styling (`NavLink`), and error boundary wrapping `<Outlet />`.
+  - `src/pages/`: Placeholder pages for `DashboardPage.jsx` and `ServicesPage.jsx`.
+- **Environment & Routing Setup**:
+  - Created `frontend/.env` and `frontend/.env.example` defining `VITE_API_URL=http://localhost:4000/api/v1`.
+  - Configured `QueryClientProvider` and `BrowserRouter` in `src/App.jsx` with routes:
+    - `/` -> `DashboardPage`
+    - `/services` -> `ServicesPage`
+    - Catch-all fallback redirect to `/`
+  - Verified backend `FRONTEND_URL` (`http://localhost:5173`) matches Vite development port (`5173`) for CORS compatibility.
+
+### Files Added or Changed
+- `frontend/package.json`: Frontend manifest with React, Vite, Tailwind, Router, Axios, React Query, React Hook Form.
+- `frontend/vite.config.js`: Vite configuration with React and Tailwind plugins on port 5173.
+- `frontend/index.html`: Configured title and dark mode root class.
+- `frontend/.env` & `frontend/.env.example`: Configured `VITE_API_URL`.
+- `frontend/.gitignore`: Added environment files and dependencies to gitignore.
+- `frontend/src/index.css`: Global dark theme styling with Tailwind CSS import.
+- `frontend/src/api/client.js`: Axios instance with response error interceptor.
+- `frontend/src/api/incidentApi.js`: API helper methods for incidents.
+- `frontend/src/api/serviceApi.js`: API helper methods for services.
+- `frontend/src/api/statsApi.js`: API helper method for stats.
+- `frontend/src/hooks/useIncidents.js`: Custom TanStack Query hook for incidents.
+- `frontend/src/hooks/useServices.js`: Custom TanStack Query hook for services.
+- `frontend/src/hooks/useStats.js`: Custom TanStack Query hook for dashboard metrics.
+- `frontend/src/components/ErrorBoundary.jsx`: Error boundary component with retry support.
+- `frontend/src/layouts/AppLayout.jsx`: Application shell with responsive top bar and active link highlighting.
+- `frontend/src/pages/DashboardPage.jsx`: Dashboard page placeholder.
+- `frontend/src/pages/ServicesPage.jsx`: Services page placeholder.
+- `frontend/src/App.jsx`: QueryClient and React Router integration.
+- `docs/PROGRESS.md`: Documented Phase 5 frontend foundation.
+
+### How to Run and Test
+1. **Start Backend Server**:
+   ```bash
+   cd backend
+   npm run dev
+   ```
+2. **Start Frontend Dev Server**:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+   Open `http://localhost:5173/` in your browser.
+3. **Build Frontend for Production**:
+   ```bash
+   cd frontend
+   npm run build
+   ```
+
+### Anything You Need to Know
+- Frontend uses pure JavaScript (`.jsx`) with no TypeScript.
+- The Axios response interceptor directly unwraps `response.data` on success and converts `{ error: { message } }` into `new Error(message)` on failure.
+
+
