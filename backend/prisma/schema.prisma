@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Environment {
+  PRODUCTION
+  STAGING
+  QA
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Status {
+  OPEN
+  RESOLVED
+}
+
+model Service {
+  id          Int         @id @default(autoincrement())
+  name        String
+  environment Environment
+  createdAt   DateTime    @default(now())
+  incidents   Incident[]
+
+  @@unique([name, environment])
+}
+
+model Incident {
+  id          Int         @id @default(autoincrement())
+  title       String
+  description String
+  severity    Severity
+  status      Status      @default(OPEN)
+  createdAt   DateTime    @default(now())
+  serviceId   Int
+  service     Service     @relation(fields: [serviceId], references: [id])
+  postMortem  PostMortem?
+
+  @@index([status, createdAt])
+  @@index([serviceId])
+}
+
+model PostMortem {
+  id               Int      @id @default(autoincrement())
+  rootCause        String
+  resolutionSteps  String
+  timeSpentMinutes Int
+  createdAt        DateTime @default(now())
+  incidentId       Int      @unique
+  incident         Incident @relation(fields: [incidentId], references: [id])
+}
