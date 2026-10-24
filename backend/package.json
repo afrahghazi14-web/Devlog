@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "postinstall": "prisma generate",
     "seed": "node prisma/seed.js",
     "seed:bulk": "node prisma/seed-bulk.js",
     "seed:reset": "node prisma/seed.js",
