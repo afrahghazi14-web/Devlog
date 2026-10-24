@@ -5,3 +5,8 @@ import * as statsRepository from "../repositories/stats.repository.js";
 export async function getStats() {
   return statsRepository.getStats();
 }
+
+export async function getServiceStats() {
+  return statsRepository.getServiceStats();
+}
+

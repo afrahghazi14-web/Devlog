@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getStats } from "../api/statsApi.js";
+import { getStats, getServiceStats } from "../api/statsApi.js";
 
 // Custom hook to fetch incident dashboard statistics
 export function useStats() {
@@ -10,4 +10,15 @@ export function useStats() {
     refetchOnWindowFocus: true,
   });
 }
+
+// Custom hook to fetch service-level resolution time analytics and rankings
+export function useServiceStats() {
+  return useQuery({
+    queryKey: ["stats", "services"],
+    queryFn: getServiceStats,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
+}
+
 

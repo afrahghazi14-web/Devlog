@@ -37,3 +37,44 @@ export async function getStats() {
     totalMinutesSpent,
   };
 }
+
+// Analytics query using prisma.$queryRaw tagged template with a CTE and window function.
+// Returns incident counts, resolution times, and service rank by total resolution duration.
+export async function getServiceStats() {
+  const result = await prisma.$queryRaw`
+    WITH service_metrics AS (
+      SELECT
+        s.id,
+        s.name,
+        s.environment,
+        CAST(COUNT(i.id) AS INTEGER) AS "incidentCount",
+        CAST(COUNT(CASE WHEN i.status = 'RESOLVED' THEN 1 END) AS INTEGER) AS "resolvedCount",
+        CAST(COALESCE(SUM(pm."timeSpentMinutes"), 0) AS INTEGER) AS "totalMinutesSpent",
+        ROUND(
+          COALESCE(
+            AVG(CASE WHEN i.status = 'RESOLVED' THEN pm."timeSpentMinutes" END),
+            0
+          )::NUMERIC,
+          1
+        )::FLOAT AS "avgMinutesPerResolved"
+      FROM "Service" s
+      LEFT JOIN "Incident" i ON s.id = i."serviceId"
+      LEFT JOIN "PostMortem" pm ON i.id = pm."incidentId"
+      GROUP BY s.id, s.name, s.environment
+    )
+    SELECT
+      id,
+      name,
+      environment,
+      "incidentCount",
+      "resolvedCount",
+      "totalMinutesSpent",
+      "avgMinutesPerResolved",
+      RANK() OVER (ORDER BY "totalMinutesSpent" DESC)::INTEGER AS rank
+    FROM service_metrics
+    ORDER BY rank ASC, name ASC;
+  `;
+
+  return result;
+}
+

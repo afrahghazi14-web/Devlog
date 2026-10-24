@@ -553,6 +553,85 @@ Phase 6 complete
    - Enter name and environment, then click **Register Service**.
    - Verify the service immediately appears in the table.
 
+Phase 7 complete
+
+## Phase 8: Database performance and analytics
+
+### What was built
+- **Bulk Data Generator & Reset Scripts (`backend/prisma/seed-bulk.js`)**:
+  - Implemented `seed-bulk.js` and registered the `"seed:bulk"` npm script. Generates and inserts 20,000 realistic synthetic incidents (~5% OPEN, ~95% RESOLVED with corresponding post-mortems) spread randomly across registered services and over 365 days.
+  - Uses high-throughput batching (`prisma.incident.createManyAndReturn` in chunks of 2,500) to insert all 20,000 incidents and ~19,000 post-mortems in ~3.8 seconds.
+  - Added the `"seed:reset"` npm script to instantly wipe bulk data and re-seed the clean 3-service, 3-incident development baseline.
+- **Partial B-Tree Index Migration**:
+  - Generated and applied a dedicated database migration `20261024054943_add_partial_open_incident_index` containing:
+    ```sql
+    CREATE INDEX "Incident_open_createdAt_idx" ON "Incident" ("createdAt" DESC)
+    WHERE status = 'OPEN';
+    ```
+  - Verified presence and definition in PostgreSQL catalog `pg_indexes`.
+- **Comprehensive Performance & Architecture Report (`docs/PERFORMANCE.md`)**:
+  - Captured and analyzed real PostgreSQL `EXPLAIN (ANALYZE, BUFFERS, COSTS)` execution plans for:
+    - Query A: "Open incidents newest first, page 1" (comparing Seq Scan vs. Index Scan).
+    - Query B: "All incidents for one service" (comparing Seq Scan vs. Bitmap Index Scan).
+  - Demonstrates that the partial index reduces Query A execution time from **1.513 ms down to 0.043 ms (35x speedup)** and cuts buffer I/O from 527 disk pages to 10 pages.
+  - Measured on-disk catalog footprints showing the partial index requires only **40 kB** compared to **632 kB** for the full compound index (over 15x smaller).
+  - Provided clear, student-friendly technical sections explaining:
+    - The N+1 query problem and how Prisma's relation batching avoids it.
+    - PostgreSQL default isolation level (Read Committed), MVCC versioning, and the atomic `updateMany` guard preventing concurrent resolution race conditions.
+    - Prisma connection pool sizing (`cpus * 2 + 1`) and the necessity of a single shared `PrismaClient`.
+- **Analytics Endpoint with CTE and Window Function (`GET /api/v1/stats/services`)**:
+  - Implemented strict layered architecture: route -> controller -> service -> repository.
+  - Built with `prisma.$queryRaw` using a tagged template string, a Common Table Expression (`WITH service_metrics AS (...)`), and a window function:
+    ```sql
+    RANK() OVER (ORDER BY "totalMinutesSpent" DESC)::INTEGER AS rank
+    ```
+  - Returns for each service: `incidentCount`, `resolvedCount`, `totalMinutesSpent`, `avgMinutesPerResolved`, and `rank`.
+  - Casts all database counts, ranks, and sums to standard 32-bit `INTEGER` / `FLOAT` types to prevent Node.js `BigInt` serialization crashes.
+- **Frontend Service Analytics Visualizer (`frontend/src/components/ServiceStatsCard.jsx`)**:
+  - Added an analytics card to the Dashboard showing services ranked by time spent.
+  - Features rank badges, normalized proportional horizontal progress bars, resolved/total incident counts, and average resolution times.
+  - Powered by custom hook `useServiceStats()` in `frontend/src/hooks/useServiceStats.js` with automatic 30-second polling and window focus refetching.
+- **Automated Test Coverage**:
+  - Added test case #13 to `backend/tests/api.test.js` verifying the `/stats/services` endpoint, HTTP 200 response, payload schema, numerical data types, and monotonic descending rank ordering.
+
+### Files Added or Changed
+- `backend/prisma/migrations/20261024054943_add_partial_open_incident_index/migration.sql`: Custom migration adding partial index on open incidents.
+- `backend/prisma/seed-bulk.js`: Fast bulk seeding script generating 20,000 incidents with post-mortems.
+- `backend/package.json`: Registered `"seed:bulk"` and `"seed:reset"` npm scripts.
+- `backend/src/repositories/stats.repository.js`: Added `getServiceStats` with CTE, window function, and BigInt casting.
+- `backend/src/services/stats.service.js`: Added `getServiceStats` service method.
+- `backend/src/controllers/stats.controller.js`: Added `getServiceStats` controller action.
+- `backend/src/routes/stats.routes.js`: Mounted `GET /services` on stats router.
+- `backend/tests/api.test.js`: Added automated test for `GET /stats/services`.
+- `docs/PERFORMANCE.md`: Comprehensive performance analysis, EXPLAIN ANALYZE benchmarks, and database design notes.
+- `frontend/src/api/statsApi.js`: Added `getServiceStats` API function.
+- `frontend/src/hooks/useStats.js`: Exported `useServiceStats` hook.
+- `frontend/src/hooks/useServiceStats.js`: Custom hook fetching service-level resolution analytics.
+- `frontend/src/components/ServiceStatsCard.jsx`: Dashboard visualizer displaying service resolution time rankings and progress bars.
+- `frontend/src/pages/DashboardPage.jsx`: Rendered `<ServiceStatsCard />` on the dashboard.
+- `.gitignore`: Added `scratch/` directory.
+- `docs/PROGRESS.md`: Documented Phase 8 implementation.
+
+### How to Run and Test
+1. **Run Bulk Seeding & Benchmarks**:
+   ```bash
+   cd backend
+   npm run seed:bulk
+   ```
+2. **Run Tests**:
+   ```bash
+   npm test
+   ```
+   Verify all 13 tests pass.
+3. **Reset Database to Clean Baseline**:
+   ```bash
+   npm run seed:reset
+   ```
+4. **View Frontend Dashboard**:
+   - Open `http://localhost:5173/`.
+   - Verify the "Time Spent by Service" card renders the ranked service list with progress bars and resolution time statistics alongside the incidents table.
+
+
 
 
 

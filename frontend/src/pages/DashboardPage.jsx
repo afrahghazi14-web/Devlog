@@ -13,6 +13,8 @@ import EmptyState from "../components/EmptyState.jsx";
 import AddIncidentModal from "../components/AddIncidentModal.jsx";
 import ResolveIncidentModal from "../components/ResolveIncidentModal.jsx";
 import PostMortemModal from "../components/PostMortemModal.jsx";
+import ServiceStatsCard from "../components/ServiceStatsCard.jsx";
+
 
 // Helper function to format minutes into "Xh Ym"
 function formatMinutes(totalMinutes = 0) {
@@ -163,8 +165,12 @@ export function DashboardPage() {
         </div>
       )}
 
+      {/* Service-Level Analytics: Time Spent by Service */}
+      <ServiceStatsCard />
+
       {/* 2. Incidents Table Section with Filters */}
       <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl overflow-hidden shadow-xl shadow-black/20 backdrop-blur-sm">
+
         {/* Table Header Controls */}
         <div className="p-4 sm:p-5 border-b border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>

@@ -4,3 +4,8 @@ import apiClient from "./client.js";
 export async function getStats() {
   return apiClient.get("/stats");
 }
+
+export async function getServiceStats() {
+  return apiClient.get("/stats/services");
+}
+

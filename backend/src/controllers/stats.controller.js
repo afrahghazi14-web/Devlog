@@ -6,3 +6,9 @@ export const getStats = asyncHandler(async (req, res) => {
   const stats = await statsService.getStats();
   res.status(200).json(stats);
 });
+
+export const getServiceStats = asyncHandler(async (req, res) => {
+  const serviceStats = await statsService.getServiceStats();
+  res.status(200).json(serviceStats);
+});
+

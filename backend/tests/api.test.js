@@ -255,4 +255,40 @@ describe("DevLog API Test Suite", () => {
       `Expected totalMinutesSpent >= 150, received ${stats.totalMinutesSpent}`
     );
   });
+
+  // 13. Service Analytics (CTE + Window function rank)
+  it("GET /stats/services - returns analytics with incident count, resolved count, time spent, avg time, and rank", async () => {
+    const res = await fetch(`${baseUrl}/stats/services`);
+    const serviceStats = await res.json();
+
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(serviceStats), "Expected response to be an array of service analytics");
+    assert.ok(serviceStats.length >= 3, "Expected at least 3 services in analytics");
+
+    // Verify fields and data types on each service record
+    serviceStats.forEach((service) => {
+      assert.equal(typeof service.id, "number");
+      assert.equal(typeof service.name, "string");
+      assert.equal(typeof service.environment, "string");
+      assert.equal(typeof service.incidentCount, "number");
+      assert.equal(typeof service.resolvedCount, "number");
+      assert.equal(typeof service.totalMinutesSpent, "number");
+      assert.equal(typeof service.avgMinutesPerResolved, "number");
+      assert.equal(typeof service.rank, "number");
+      assert.ok(service.rank >= 1, "Rank should be a positive integer >= 1");
+    });
+
+    // Verify rank order (total minutes descending)
+    for (let i = 0; i < serviceStats.length - 1; i++) {
+      assert.ok(
+        serviceStats[i].totalMinutesSpent >= serviceStats[i + 1].totalMinutesSpent,
+        "Services should be ranked by totalMinutesSpent descending"
+      );
+      assert.ok(
+        serviceStats[i].rank <= serviceStats[i + 1].rank,
+        "Ranks should be monotonically non-decreasing"
+      );
+    }
+  });
 });
+

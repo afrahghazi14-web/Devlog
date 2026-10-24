@@ -8,6 +8,8 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node prisma/seed.js",
+    "seed:bulk": "node prisma/seed-bulk.js",
+    "seed:reset": "node prisma/seed.js",
     "test": "node --test tests/api.test.js"
   },
   "prisma": {
