@@ -239,12 +239,12 @@ export function DashboardPage() {
                         }`}
                       >
                         {/* Incident Title & Description preview */}
-                        <td className="py-3.5 px-4 sm:px-6">
-                          <div className="font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors">
+                        <td className="py-3.5 px-4 sm:px-6 max-w-xs sm:max-w-md">
+                          <div className="font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors break-words">
                             {incident.title}
                           </div>
                           {incident.description && (
-                            <div className="text-xs text-slate-500 line-clamp-1 mt-0.5 max-w-md">
+                            <div className="text-xs text-slate-500 line-clamp-1 mt-0.5 max-w-md break-words">
                               {incident.description}
                             </div>
                           )}

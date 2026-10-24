@@ -105,10 +105,10 @@ export function ServicesPage() {
                     className="hover:bg-slate-800/40 transition-colors group"
                   >
                     {/* Service Name */}
-                    <td className="py-3.5 px-4 sm:px-6">
-                      <div className="font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                        {service.name}
+                    <td className="py-3.5 px-4 sm:px-6 max-w-xs sm:max-w-md">
+                      <div className="font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors flex items-center gap-2 break-words">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                        <span className="break-words">{service.name}</span>
                       </div>
                     </td>
 

@@ -445,6 +445,44 @@ Aggregates real-time incident metrics for dashboard summary cards.
 - `openHighSeverity`: Count of OPEN incidents where severity is `"HIGH"` or `"CRITICAL"`.
 - `totalMinutesSpent`: Sum of `timeSpentMinutes` across all `PostMortem` records (returns `0` if none exist).
 
+### `GET /stats/services`
+Computes service-level incident response analytics using a Common Table Expression (CTE) and window function ranking (`RANK() OVER (ORDER BY "totalMinutesSpent" DESC)`).
+
+- **Request Query**: None
+- **Request Body**: None
+
+#### Success Response (`200 OK`)
+```json
+[
+  {
+    "id": 1,
+    "name": "Billing Engine",
+    "environment": "PRODUCTION",
+    "incidentCount": 14,
+    "resolvedCount": 12,
+    "totalMinutesSpent": 1040,
+    "avgMinutesPerResolved": 86.7,
+    "rank": 1
+  },
+  {
+    "id": 2,
+    "name": "User Auth",
+    "environment": "PRODUCTION",
+    "incidentCount": 9,
+    "resolvedCount": 8,
+    "totalMinutesSpent": 620,
+    "avgMinutesPerResolved": 77.5,
+    "rank": 2
+  }
+]
+```
+
+- `incidentCount`: Total number of incidents logged against the service.
+- `resolvedCount`: Number of incidents marked as `RESOLVED`.
+- `totalMinutesSpent`: Aggregate minutes spent resolving incidents for this service.
+- `avgMinutesPerResolved`: Average minutes spent per resolved incident (rounded to 1 decimal place).
+- `rank`: Ordinal rank by total minutes spent in descending order.
+
 ---
 
 ## 5. Security & Hardening Features

@@ -631,6 +631,60 @@ Phase 7 complete
    - Open `http://localhost:5173/`.
    - Verify the "Time Spent by Service" card renders the ranked service list with progress bars and resolution time statistics alongside the incidents table.
 
+Phase 8 complete
+
+## Phase 9: Quality pass, README, cleanup
+
+### What was built
+- **Cleanliness & Architecture Compliance Audit**:
+  - Confirmed zero TypeScript files (`.ts` or `.tsx`) in the entire repository.
+  - Confirmed zero MongoDB code or drivers across all modules (pure PostgreSQL with Prisma ORM).
+  - Verified Git commit history to ensure `.env` and sensitive secrets were never committed.
+  - Audited code for extraneous `console.log` debugging statements, leaving only essential server startup and ErrorBoundary lifecycle logging.
+- **Root Documentation (`README.md`)**:
+  - Created a comprehensive root `README.md` providing:
+    - High-level project summary and college mini-project context.
+    - Full tech stack matrix (Node.js, Express, Prisma, PostgreSQL, React, Tailwind CSS, TanStack Query).
+    - Prerequisites and step-by-step setup instructions from database creation to server launch.
+    - Testing instructions (`npm test`, `npm run seed:bulk`, `npm run seed:reset`).
+    - Clean repository folder tree breakdown.
+    - Complete API reference overview table linking to `docs/API.md`.
+    - Key architectural highlights: layered design, atomic resolve transaction with `updateMany` concurrency guard, partial B-Tree indexes, and CTE window functions.
+- **API Documentation (`docs/API.md`)**:
+  - Updated `docs/API.md` with complete documentation for `GET /api/v1/stats/services`, detailing CTE metrics, `RANK() OVER` window ordering, and BigInt-safe integer response types.
+- **Responsive Layout & Text Overflow Hardening**:
+  - Added `max-w-xs sm:max-w-md break-words` constraints to incident titles and descriptions on `DashboardPage.jsx` and service names on `ServicesPage.jsx`.
+  - Tested on laptop widths and mobile viewports, ensuring horizontal tables scroll smoothly with `overflow-x-auto` without breaking card layouts or navigation headers.
+- **Edge Cases & Walkthrough Validation**:
+  - Empty database: tested clean empty state representations for incidents, services, and analytics cards.
+  - Backend offline: verified Axios interceptor and UI `ErrorMessage` banners with retry triggers.
+  - Double-click prevention: form submission buttons disabled during mutation execution (`isPending` state) with spinner animations.
+  - Atomic concurrency: verified that duplicate resolve attempts return standard `409 Conflict` errors displayed inside the modal without closing it.
+  - Invalid route routing: unknown paths redirect automatically to `/`.
+
+### Files Added or Changed
+- `README.md`: Root project overview, setup guide, testing documentation, and architecture breakdown.
+- `docs/API.md`: Documented `GET /api/v1/stats/services` endpoint schema and ranking semantics.
+- `frontend/src/pages/DashboardPage.jsx`: Added text wrapping and max-width constraints to table cells.
+- `frontend/src/pages/ServicesPage.jsx`: Added text wrapping and max-width constraints to service rows.
+- `docs/PROGRESS.md`: Documented Phase 9 quality pass.
+
+### How to Run and Test
+1. **Run Automated Tests**:
+   ```bash
+   cd backend && npm test
+   ```
+   *Expected: All 13 tests pass.*
+2. **Build Frontend**:
+   ```bash
+   cd frontend && npm run build
+   ```
+   *Expected: Clean production bundle compiled with 0 errors.*
+3. **Verify Dev Servers**:
+   - Backend: `http://localhost:4000/api/v1/health` -> `{"status":"ok","database":"up"}`
+   - Frontend: `http://localhost:5173/` -> live dashboard with stats cards, analytics visualizer, and incidents table.
+
+
 
 
 
