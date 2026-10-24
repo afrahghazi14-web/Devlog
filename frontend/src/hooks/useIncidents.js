@@ -1,11 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { getIncidents, getIncidentById } from "../api/incidentApi.js";
 
-// Custom hook to fetch paginated incidents with status filter
+// Custom hook to fetch paginated incidents with status filter.
+// Uses keepPreviousData so the UI retains the current rows while fetching the next page.
 export function useIncidents({ status = "ALL", page = 1, limit = 10 } = {}) {
   return useQuery({
     queryKey: ["incidents", { status, page, limit }],
     queryFn: () => getIncidents({ status, page, limit }),
+    placeholderData: keepPreviousData,
   });
 }
 

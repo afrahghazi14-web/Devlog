@@ -395,4 +395,73 @@ Phase 0 complete
 - Frontend uses pure JavaScript (`.jsx`) with no TypeScript.
 - The Axios response interceptor directly unwraps `response.data` on success and converts `{ error: { message } }` into `new Error(message)` on failure.
 
+## Phase 6: Dashboard and Services pages (reading data only)
+
+### What was built
+- **Dashboard Page (`frontend/src/pages/DashboardPage.jsx`)**:
+  - Integrated `useStats()` hook to display 3 summary cards:
+    - Active incidents (`openIncidents`).
+    - High-severity open (`openHighSeverity`).
+    - Total time spent (`totalMinutesSpent` formatted cleanly as `"Xh Ym"`).
+  - Incidents table displaying:
+    - Title with preview description.
+    - Associated Service name with environment badge.
+    - Severity pill with colors: LOW (green), MEDIUM (yellow), HIGH (orange), CRITICAL (red).
+    - Status badge with distinct colors for OPEN (blue) and RESOLVED (purple).
+    - Formatted creation date.
+  - Interactive Filter Tabs: `All`, `Open`, `Resolved`. Switching tabs resets pagination to page 1.
+  - Pagination controls showing `"Page X of Y"`, disabling Previous at page 1 and Next at page Y.
+  - Smooth pagination transitions keeping existing rows visible using TanStack Query's `keepPreviousData`.
+  - Comprehensive UI states: loading spinner, empty state ("No incidents yet"), and error state with retry.
+- **Services Page (`frontend/src/pages/ServicesPage.jsx`)**:
+  - Integrated `useServices()` hook to display registered services.
+  - Services table columns: Name, Environment (colored badge), Date Created.
+  - Loading, error (with retry button), and empty states.
+- **Reusable Component Library (`frontend/src/components/`)**:
+  - `StatCard.jsx`: Metric card with title, large numeric value, icon, and description.
+  - `SeverityPill.jsx`: Colored pill badges matching severity standards (green, yellow, orange, red).
+  - `StatusBadge.jsx`: Clearly differentiated badges for OPEN and RESOLVED statuses.
+  - `EnvironmentBadge.jsx`: Environment badges for PRODUCTION, STAGING, and QA.
+  - `FilterTabs.jsx`: Tab switcher for incident status filters.
+  - `Pagination.jsx`: Pagination controls with disabled boundary states.
+  - `Spinner.jsx`: Accessible loading indicator.
+  - `ErrorMessage.jsx`: Error alert box with retry button.
+  - `EmptyState.jsx`: Empty placeholder component.
+- **Query Hooks Updated (`frontend/src/hooks/useIncidents.js`)**:
+  - Added `placeholderData: keepPreviousData` to cache previous pages during query transitions.
+
+### Files Added or Changed
+- `frontend/src/components/StatCard.jsx`: Reusable metric card component.
+- `frontend/src/components/SeverityPill.jsx`: Colored pill for LOW, MEDIUM, HIGH, CRITICAL.
+- `frontend/src/components/StatusBadge.jsx`: Distinct badge for OPEN and RESOLVED.
+- `frontend/src/components/EnvironmentBadge.jsx`: Badges for PRODUCTION, STAGING, QA.
+- `frontend/src/components/FilterTabs.jsx`: Tab switcher for incident status filters.
+- `frontend/src/components/Pagination.jsx`: Pagination controls with disabled boundary states.
+- `frontend/src/components/Spinner.jsx`: Loading indicator component.
+- `frontend/src/components/ErrorMessage.jsx`: Error alert box with retry button.
+- `frontend/src/components/EmptyState.jsx`: Empty placeholder component.
+- `frontend/src/hooks/useIncidents.js`: Added `keepPreviousData` to preserve table rows between pages.
+- `frontend/src/pages/DashboardPage.jsx`: Real-time incident dashboard with stats cards, filter tabs, and paginated table.
+- `frontend/src/pages/ServicesPage.jsx`: Services registry table with environment badges.
+- `docs/PROGRESS.md`: Documented Phase 6 frontend components and features.
+
+### How to Run and Test
+1. **Start backend and frontend**:
+   ```bash
+   # Terminal 1: backend
+   cd backend && npm run dev
+
+   # Terminal 2: frontend
+   cd frontend && npm run dev
+   ```
+2. **View Dashboard**:
+   - Open `http://localhost:5173/`.
+   - Verify 3 summary cards (Active Incidents, High-Severity Open, Total Time Spent).
+   - Test clicking filter tabs: `All`, `Open`, `Resolved`.
+   - Test pagination controls.
+3. **View Services Registry**:
+   - Navigate to `http://localhost:5173/services`.
+   - Verify services table displays `Billing Engine`, `Notification API`, and `User Auth`.
+
+
 
