@@ -10,6 +10,9 @@ import Pagination from "../components/Pagination.jsx";
 import Spinner from "../components/Spinner.jsx";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import EmptyState from "../components/EmptyState.jsx";
+import AddIncidentModal from "../components/AddIncidentModal.jsx";
+import ResolveIncidentModal from "../components/ResolveIncidentModal.jsx";
+import PostMortemModal from "../components/PostMortemModal.jsx";
 
 // Helper function to format minutes into "Xh Ym"
 function formatMinutes(totalMinutes = 0) {
@@ -37,7 +40,12 @@ export function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  // 1. Fetch dashboard metrics from /stats
+  // Modal dialog states
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [resolvingIncident, setResolvingIncident] = useState(null);
+  const [viewingPostMortemId, setViewingPostMortemId] = useState(null);
+
+  // 1. Fetch dashboard metrics from /stats (auto-refreshed every 30s)
   const {
     data: stats,
     isLoading: isStatsLoading,
@@ -46,7 +54,7 @@ export function DashboardPage() {
     refetch: refetchStats,
   } = useStats();
 
-  // 2. Fetch paginated incidents with status filter
+  // 2. Fetch paginated incidents with status filter (auto-refreshed every 30s)
   const {
     data: incidentsData,
     isLoading: isIncidentsLoading,
@@ -72,14 +80,37 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Page Title & Subtitle */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          Incident Dashboard
-        </h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Real-time incident response metrics, health statuses, and post-mortems.
-        </p>
+      {/* Page Header with Action Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Incident Dashboard
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Real-time incident response metrics, health statuses, and post-mortems.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsAddModalOpen(true)}
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-lg shadow-indigo-950/60 transition-all cursor-pointer hover:shadow-indigo-600/25"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.5"
+              d="M12 4v16m8-8H4"
+            />
+          </svg>
+          <span>Add Incident</span>
+        </button>
       </div>
 
       {/* 1. Summary Cards Section */}
@@ -179,57 +210,124 @@ export function DashboardPage() {
                     <th className="py-3.5 px-4">Service</th>
                     <th className="py-3.5 px-4">Severity</th>
                     <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 sm:px-6">Date Created</th>
+                    <th className="py-3.5 px-4">Date Created</th>
+                    <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-normal">
-                  {incidentsList.map((incident) => (
-                    <tr
-                      key={incident.id}
-                      className="hover:bg-slate-800/40 transition-colors group"
-                    >
-                      {/* Incident Title & Description preview */}
-                      <td className="py-3.5 px-4 sm:px-6">
-                        <div className="font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors">
-                          {incident.title}
-                        </div>
-                        {incident.description && (
-                          <div className="text-xs text-slate-500 line-clamp-1 mt-0.5 max-w-md">
-                            {incident.description}
+                  {incidentsList.map((incident) => {
+                    const isResolved = incident.status === "RESOLVED";
+
+                    return (
+                      <tr
+                        key={incident.id}
+                        onClick={() => {
+                          if (isResolved) {
+                            setViewingPostMortemId(incident.id);
+                          }
+                        }}
+                        className={`transition-colors group ${
+                          isResolved
+                            ? "cursor-pointer hover:bg-slate-800/60"
+                            : "hover:bg-slate-800/40"
+                        }`}
+                      >
+                        {/* Incident Title & Description preview */}
+                        <td className="py-3.5 px-4 sm:px-6">
+                          <div className="font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors">
+                            {incident.title}
                           </div>
-                        )}
-                      </td>
-
-                      {/* Service Name & Environment Badge */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-slate-200">
-                            {incident.service?.name || "Unknown Service"}
-                          </span>
-                          {incident.service?.environment && (
-                            <EnvironmentBadge
-                              environment={incident.service.environment}
-                            />
+                          {incident.description && (
+                            <div className="text-xs text-slate-500 line-clamp-1 mt-0.5 max-w-md">
+                              {incident.description}
+                            </div>
                           )}
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Severity Pill */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <SeverityPill severity={incident.severity} />
-                      </td>
+                        {/* Service Name & Environment Badge */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-200">
+                              {incident.service?.name || "Unknown Service"}
+                            </span>
+                            {incident.service?.environment && (
+                              <EnvironmentBadge
+                                environment={incident.service.environment}
+                              />
+                            )}
+                          </div>
+                        </td>
 
-                      {/* Status Badge */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <StatusBadge status={incident.status} />
-                      </td>
+                        {/* Severity Pill */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <SeverityPill severity={incident.severity} />
+                        </td>
 
-                      {/* Date Created */}
-                      <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap text-xs text-slate-400">
-                        {formatDate(incident.createdAt)}
-                      </td>
-                    </tr>
-                  ))}
+                        {/* Status Badge */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <StatusBadge status={incident.status} />
+                        </td>
+
+                        {/* Date Created */}
+                        <td className="py-3.5 px-4 whitespace-nowrap text-xs text-slate-400">
+                          {formatDate(incident.createdAt)}
+                        </td>
+
+                        {/* Actions Column */}
+                        <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap text-right">
+                          {incident.status === "OPEN" ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setResolvingIncident(incident);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/80 hover:text-emerald-200 rounded-md text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                            >
+                              <svg
+                                className="w-3.5 h-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              <span>Resolve & Post-Mortem</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingPostMortemId(incident.id);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-950/70 text-indigo-300 border border-indigo-700/60 hover:bg-indigo-900/80 hover:text-indigo-200 rounded-md text-xs font-medium shadow-sm transition-all cursor-pointer"
+                            >
+                              <svg
+                                className="w-3.5 h-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                              </svg>
+                              <span>View Post-Mortem</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -246,6 +344,24 @@ export function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* 3. Modals */}
+      <AddIncidentModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+      />
+
+      <ResolveIncidentModal
+        incident={resolvingIncident}
+        isOpen={Boolean(resolvingIncident)}
+        onClose={() => setResolvingIncident(null)}
+      />
+
+      <PostMortemModal
+        incidentId={viewingPostMortemId}
+        isOpen={Boolean(viewingPostMortemId)}
+        onClose={() => setViewingPostMortemId(null)}
+      />
     </div>
   );
 }

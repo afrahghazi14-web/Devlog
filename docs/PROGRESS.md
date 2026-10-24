@@ -463,5 +463,96 @@ Phase 0 complete
    - Navigate to `http://localhost:5173/services`.
    - Verify services table displays `Billing Engine`, `Notification API`, and `User Auth`.
 
+Phase 6 complete
+
+## Phase 7: Forms, mutations, post-mortem view, polling
+
+### What was built
+- **Reusable Modal Primitive (`frontend/src/components/Modal.jsx`)**:
+  - Accessible modal dialog component featuring a semi-transparent backdrop overlay.
+  - Closes on `Escape` key press and backdrop click.
+  - Accessible focus management: automatically captures and moves focus into the modal container upon opening and restores focus to the previously active element upon closing.
+  - Scrollable container on small screens with `max-h-[90vh]` and body scroll lock.
+- **Add Incident Modal (`frontend/src/components/AddIncidentModal.jsx`)**:
+  - Opened via the "Add Incident" button in the dashboard header.
+  - Built with `react-hook-form` with client-side validation:
+    - Service dropdown: populated from `useServices()` with validation.
+    - Title: required (3 to 255 characters).
+    - Description: required (5 to 2000 characters).
+    - Severity: select dropdown (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
+  - Validation error feedback rendered directly beneath each field.
+  - Inline backend API error banner displaying server errors without closing the modal.
+  - Submit button with spinner and disabled states while submitting.
+- **Resolve & Post-Mortem Modal (`frontend/src/components/ResolveIncidentModal.jsx`)**:
+  - Triggered via the "Resolve & Post-Mortem" action button on every `OPEN` incident row.
+  - Form built with `react-hook-form`:
+    - Root Cause textarea (required, minimum 5 characters).
+    - Resolution Steps textarea (required, minimum 5 characters).
+    - Time spent in minutes (positive integer, minimum 1 minute).
+  - Displays incident and service context summary card.
+  - Handles backend 409 Conflict (e.g. already resolved race condition) by rendering the server error message inside the modal without dismissing it.
+  - Submit button with loading spinner and disabled state during mutation execution.
+- **Post-Mortem Detail View (`frontend/src/components/PostMortemModal.jsx`)**:
+  - Triggered by clicking any `RESOLVED` table row or its "View Post-Mortem" button.
+  - Fetches the latest incident record with full post-mortem details using `useIncident(id)`.
+  - Displays incident overview (Title, Description, Service name with Environment badge, Severity pill, Status badge, and timestamps).
+  - Shows resolution metrics: time spent formatted in hours and minutes, resolved date, root cause card, and resolution steps card.
+- **Register Service Modal (`frontend/src/components/RegisterServiceModal.jsx`)**:
+  - Triggered via the "Register Service" button on the Services page header.
+  - Collects service name (2 to 100 characters) and environment (`PRODUCTION`, `STAGING`, `QA`).
+  - Displays client validation errors and backend 409 Conflict errors (duplicate name + environment) inside the modal.
+- **Mutations & Cache Invalidation**:
+  - `useCreateIncident`: calls `createIncident(data)` and invalidates `["incidents"]` and `["stats"]`.
+  - `useResolveIncident`: calls `resolveIncident(id, data)` and invalidates `["incidents"]`, `["stats"]`, and `["incident", id]`.
+  - `useCreateService`: calls `createService(data)` and invalidates `["services"]`.
+  - All mutations ensure instant UI updates across the application without requiring a page reload.
+- **Dashboard Polling & Data Freshness**:
+  - Configured 30-second polling (`refetchInterval: 30000`) and window focus refetching (`refetchOnWindowFocus: true`) in `useStats` and `useIncidents`.
+- **Error Boundary**:
+  - Verified `ErrorBoundary` wraps the routed pages via `AppLayout.jsx` for graceful error recovery.
+
+### Files Added or Changed
+- `frontend/src/components/Modal.jsx`: Reusable accessible modal dialog component.
+- `frontend/src/components/AddIncidentModal.jsx`: Modal form to log new incidents with React Hook Form.
+- `frontend/src/components/ResolveIncidentModal.jsx`: Modal form to resolve incidents and submit post-mortems.
+- `frontend/src/components/PostMortemModal.jsx`: Modal detail view displaying resolved incidents and post-mortems.
+- `frontend/src/components/RegisterServiceModal.jsx`: Modal form to register new services on the Services page.
+- `frontend/src/hooks/useCreateIncident.js`: Mutation hook for incident creation with query invalidation.
+- `frontend/src/hooks/useResolveIncident.js`: Mutation hook for incident resolution with query invalidation.
+- `frontend/src/hooks/useCreateService.js`: Mutation hook for service registration with query invalidation.
+- `frontend/src/hooks/useIncidents.js`: Added 30-second polling, window focus refetching, and mutation re-exports.
+- `frontend/src/hooks/useServices.js`: Re-exported `useCreateService`.
+- `frontend/src/hooks/useStats.js`: Added 30-second polling and window focus refetching.
+- `frontend/src/pages/DashboardPage.jsx`: Added Add Incident button, Resolve buttons, Post-Mortem triggers, and modals.
+- `frontend/src/pages/ServicesPage.jsx`: Added Register Service button and RegisterServiceModal.
+- `docs/PROGRESS.md`: Documented Phase 7 implementation details.
+
+### How to Run and Test
+1. **Start backend and frontend**:
+   ```bash
+   # Terminal 1: backend
+   cd backend && npm run dev
+
+   # Terminal 2: frontend
+   cd frontend && npm run dev
+   ```
+2. **Test Adding an Incident**:
+   - On the Dashboard (`http://localhost:5173/` or `http://localhost:5174/`), click **Add Incident**.
+   - Verify validation errors appear when submitting empty fields.
+   - Fill in service, title, description, and severity, then submit.
+   - Verify the modal closes, the button shows a spinner while saving, and the new incident appears in the table immediately.
+3. **Test Resolving an Incident**:
+   - On any `OPEN` incident, click **Resolve & Post-Mortem**.
+   - Enter root cause, resolution steps, and time spent (e.g. 45), then click **Resolve & Save Post-Mortem**.
+   - Verify the modal closes, the row status flips to `RESOLVED`, and the summary metrics (active count and total time spent) update automatically.
+4. **Test Post-Mortem View**:
+   - Click on the resolved incident row or click **View Post-Mortem**.
+   - Verify the post-mortem modal loads the full root cause, resolution steps, time spent, and resolution date.
+5. **Test Registering a Service**:
+   - Go to `http://localhost:5173/services` and click **Register Service**.
+   - Enter name and environment, then click **Register Service**.
+   - Verify the service immediately appears in the table.
+
+
 
 

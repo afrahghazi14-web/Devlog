@@ -8,6 +8,8 @@ export function useIncidents({ status = "ALL", page = 1, limit = 10 } = {}) {
     queryKey: ["incidents", { status, page, limit }],
     queryFn: () => getIncidents({ status, page, limit }),
     placeholderData: keepPreviousData,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -19,3 +21,7 @@ export function useIncident(id) {
     enabled: Boolean(id),
   });
 }
+
+export { useCreateIncident } from "./useCreateIncident.js";
+export { useResolveIncident } from "./useResolveIncident.js";
+

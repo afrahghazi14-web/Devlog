@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { useServices } from "../hooks/useServices.js";
 import EnvironmentBadge from "../components/EnvironmentBadge.jsx";
 import Spinner from "../components/Spinner.jsx";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import EmptyState from "../components/EmptyState.jsx";
+import RegisterServiceModal from "../components/RegisterServiceModal.jsx";
 
 // Helper function to format timestamp
 function formatDate(dateString) {
@@ -19,18 +20,42 @@ function formatDate(dateString) {
 }
 
 export function ServicesPage() {
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const { data: services = [], isLoading, isError, error, refetch } = useServices();
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          Services Registry
-        </h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Registered infrastructure components and target environments.
-        </p>
+      {/* Page Header with Action Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Services Registry
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Registered infrastructure components and target environments.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsRegisterModalOpen(true)}
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-lg shadow-indigo-950/60 transition-all cursor-pointer hover:shadow-indigo-600/25"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.5"
+              d="M12 4v16m8-8H4"
+            />
+          </svg>
+          <span>Register Service</span>
+        </button>
       </div>
 
       {/* Services Table Card */}
@@ -103,6 +128,12 @@ export function ServicesPage() {
           </div>
         )}
       </div>
+
+      {/* Register Service Modal */}
+      <RegisterServiceModal
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+      />
     </div>
   );
 }
