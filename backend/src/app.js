@@ -10,7 +10,11 @@ import { AppError } from "./errors/AppError.js";
 const app = express();
 
 // Hardening: Helmet sets secure HTTP response headers
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 // Hardening: Rate limiting to protect endpoints against brute force and denial of service
 const limiter = rateLimit({
@@ -27,10 +31,30 @@ const limiter = rateLimit({
 });
 app.use("/api", limiter);
 
-// Hardening: CORS restricted strictly to the configured frontend origin
+// Hardening: CORS allows configured frontend origin as well as local development ports
+const allowedOrigins = [
+  env.FRONTEND_URL,
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  "http://127.0.0.1:5175",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. curl, tests, server-to-server)
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
   })
 );
