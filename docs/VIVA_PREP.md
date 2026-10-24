@@ -78,7 +78,7 @@ CREATE INDEX "Incident_open_createdAt_idx"
 ON "Incident" ("createdAt" DESC) 
 WHERE status = 'OPEN';
 ```
-In real production systems, ~95% of incidents are resolved, and only ~5% remain open. An operations dashboard almost exclusively queries **open** incidents. By adding `WHERE status = 'OPEN'`:
+In our 20,000-row test dataset, about 95% of rows were resolved, which is typical because most incidents get closed. An operations dashboard almost exclusively queries **open** incidents. By adding `WHERE status = 'OPEN'`:
 1. The index only stores rows where `status = 'OPEN'`.
 2. It completely excludes the 95% resolved rows.
 3. This saves massive RAM and disk space, and makes index writes on resolved incidents faster because the partial index does not need to be updated.
